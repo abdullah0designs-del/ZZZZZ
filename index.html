@@ -1,62 +1,383 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>عربيكا</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منصة حساب المصاريف</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .calc-btn { transition: all 0.15s ease; }
+        .calc-btn:active { transform: scale(0.95); background-color: #e2e8f0; }
+        
+        /* Hide scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .tab-active { color: #10b981; border-bottom: 3px solid #10b981; }
+        .tab-inactive { color: #64748b; border-bottom: 3px solid transparent; }
+        
+        /* Toast Animation */
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideUp 0.3s ease forwards; }
+    </style>
 </head>
-<body>
+<body class="bg-slate-200 text-slate-800 h-screen flex justify-center items-center overflow-hidden">
 
-  <div class="container" id="home">
-    <h1>منصة عربيكا</h1>
-    <button onclick="showRegister()">إنشاء حساب</button>
-    <button onclick="showLogin()">تسجيل دخول</button>
-  </div>
+    <!-- App Container -->
+    <div class="w-full max-w-md bg-slate-50 h-full sm:h-[95vh] sm:rounded-3xl shadow-2xl relative flex flex-col overflow-hidden">
+        
+        <!-- ================= LOADER SCREEN ================= -->
+        <div id="loaderScreen" class="absolute inset-0 bg-emerald-500 z-50 flex flex-col items-center justify-center text-white transition-opacity duration-500">
+            <i class="fas fa-wallet text-6xl mb-4 animate-bounce"></i>
+            <h1 class="text-2xl font-bold font-cairo mb-2">مصاريفي</h1>
+            <div class="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mt-4"></div>
+            <p class="mt-4 text-emerald-100 text-sm">جاري الاتصال بقاعدة البيانات...</p>
+        </div>
 
-  <!-- صفحة إنشاء حساب -->
-  <div class="container hidden" id="register">
-    <h2>إنشاء حساب</h2>
+        <!-- ================= ONBOARDING SCREEN ================= -->
+        <div id="onboardingScreen" class="absolute inset-0 bg-white z-40 hidden flex-col items-center justify-center p-6 text-center">
+            <div class="w-24 h-24 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center text-4xl mb-6 shadow-inner">
+                <i class="fas fa-user-astronaut"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-slate-800 mb-2">أهلاً بك!</h2>
+            <p class="text-slate-500 mb-8">يبدو أن هذه هي المرة الأولى لك هنا. أدخل اسمك للبدء في تتبع مصاريفك باحترافية.</p>
+            
+            <input type="text" id="userNameInput" placeholder="اكتب اسمك هنا..." class="w-full bg-slate-100 text-center text-xl p-4 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all mb-6">
+            
+            <button id="saveUserBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg py-4 rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex justify-center items-center">
+                <span>ابدأ الآن</span>
+                <i class="fas fa-arrow-left mr-3"></i>
+            </button>
+        </div>
 
-    <input type="text" id="name" placeholder="الاسم الكامل">
-    
-    <select id="grade">
-      <option value="">اختر الصف الدراسي</option>
-      <option>الصف الأول الثانوي</option>
-      <option>الصف الثاني الثانوي</option>
-      <option>الصف الثالث الثانوي</option>
-    </select>
+        <!-- ================= MAIN APP CONTENT ================= -->
+        <div id="mainApp" class="hidden flex-col h-full w-full">
+            
+            <!-- Header -->
+            <header class="bg-emerald-500 text-white pt-10 pb-6 px-6 rounded-b-3xl shadow-md z-10 flex-shrink-0">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <p class="text-emerald-100 text-sm font-semibold">مرحباً بك مجدداً،</p>
+                        <h2 id="displayUserName" class="text-2xl font-bold">...</h2>
+                    </div>
+                    <div class="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                        <i class="fas fa-chart-pie text-xl"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+                    <p class="text-emerald-100 text-sm mb-1">إجمالي مصاريف اليوم</p>
+                    <div class="flex items-end">
+                        <span id="todayTotal" class="text-3xl font-bold mr-1">0</span>
+                        <span class="text-emerald-100 ml-1 mb-1">ج.م</span>
+                    </div>
+                </div>
+            </header>
 
-    <select id="governorate">
-      <option value="">اختر المحافظة</option>
-    </select>
+            <!-- Views Container -->
+            <div class="flex-1 overflow-hidden relative">
+                
+                <!-- VIEW 1: ADD EXPENSE (CALCULATOR) -->
+                <div id="view-add" class="absolute inset-0 flex flex-col overflow-y-auto p-4 transition-transform duration-300">
+                    
+                    <!-- Amount Display -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4 flex items-center justify-between">
+                        <span class="text-slate-400 font-bold">المبلغ:</span>
+                        <div class="flex items-center text-emerald-600 font-bold overflow-hidden">
+                            <span id="calcDisplay" class="text-4xl tracking-wider">0</span>
+                            <span class="ml-2 text-lg text-slate-400">ج.م</span>
+                        </div>
+                    </div>
 
-    <input type="text" id="phone" placeholder="رقم الهاتف">
-    <input type="text" id="parentPhone" placeholder="رقم هاتف ولي الأمر">
-    <input type="password" id="password" placeholder="كلمة المرور">
+                    <!-- Reason Input -->
+                    <div class="relative mb-4">
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400">
+                            <i class="fas fa-pen"></i>
+                        </div>
+                        <input type="text" id="expenseReason" placeholder="فيما صرفت هذا المبلغ؟ (اختياري)" class="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-xl focus:ring-emerald-500 focus:border-emerald-500 block pr-10 p-3.5 shadow-sm">
+                    </div>
 
-    <button onclick="register()">تسجيل</button>
-    <button class="secondary" onclick="goHome()">رجوع</button>
-  </div>
+                    <!-- Calculator Grid -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-2 mb-4 grid grid-cols-3 gap-2 flex-1 max-h-[300px]">
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('1')">1</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('2')">2</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('3')">3</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('4')">4</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('5')">5</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('6')">6</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('7')">7</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('8')">8</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('9')">9</button>
+                        <button class="calc-btn bg-slate-50 text-red-500 text-xl font-bold rounded-xl py-2" onclick="clearCalc()"><i class="fas fa-backspace"></i></button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-2xl font-semibold rounded-xl py-2" onclick="appendNum('0')">0</button>
+                        <button class="calc-btn bg-slate-50 text-slate-700 text-3xl font-bold rounded-xl py-2" onclick="appendNum('.')">.</button>
+                    </div>
 
-  <!-- صفحة تسجيل الدخول -->
-  <div class="container hidden" id="login">
-    <h2>تسجيل الدخول</h2>
+                    <!-- Add Button -->
+                    <button id="addExpenseBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-xl shadow-lg mt-auto flex justify-center items-center transition-colors">
+                        <i class="fas fa-plus-circle ml-2"></i>
+                        <span>إضافة المصروف</span>
+                    </button>
+                </div>
 
-    <input type="text" id="loginPhone" placeholder="رقم الهاتف">
-    <input type="password" id="loginPassword" placeholder="كلمة المرور">
+                <!-- VIEW 2: REPORTS -->
+                <div id="view-reports" class="absolute inset-0 flex flex-col translate-x-full transition-transform duration-300 bg-slate-50">
+                    
+                    <!-- Report Tabs -->
+                    <div class="flex border-b border-slate-200 bg-white">
+                        <button onclick="switchReportTab('daily')" id="tab-daily" class="flex-1 py-3 text-center font-bold text-sm tab-active transition-colors">التقرير اليومي</button>
+                        <button onclick="switchReportTab('weekly')" id="tab-weekly" class="flex-1 py-3 text-center font-bold text-sm tab-inactive transition-colors">التقرير الأسبوعي</button>
+                    </div>
 
-    <button onclick="login()">دخول</button>
-    <button class="secondary" onclick="goHome()">رجوع</button>
-  </div>
+                    <!-- Reports Content -->
+                    <div class="flex-1 overflow-y-auto p-4 pb-20" id="reportsContent">
+                        <!-- Content injected via JS -->
+                    </div>
+                </div>
 
-  <!-- صفحة البيانات -->
-  <div class="container hidden" id="profile">
-    <h2>بياناتك</h2>
-    <p id="profileData"></p>
+            </div>
 
-    <h1 class="big-text">جاري تجهيز منصة الأستاذ أشرف عبد الرحمن</h1>
-  </div>
+            <!-- Bottom Navigation -->
+            <nav class="bg-white border-t border-slate-200 flex justify-around items-center p-2 flex-shrink-0 relative z-20">
+                <button onclick="switchView('add')" id="nav-add" class="flex flex-col items-center p-2 text-emerald-500 transition-colors w-16">
+                    <i class="fas fa-calculator text-xl mb-1"></i>
+                    <span class="text-[10px] font-bold">الحاسبة</span>
+                </button>
+                <div class="w-12"></div> <!-- Spacer for center FAB if needed, or just layout -->
+                <button onclick="switchView('reports')" id="nav-reports" class="flex flex-col items-center p-2 text-slate-400 transition-colors w-16">
+                    <i class="fas fa-list-alt text-xl mb-1"></i>
+                    <span class="text-[10px] font-bold">التقارير</span>
+                </button>
+            </nav>
+        </div>
 
-  <script src="script.js"></script>
-</body>
-</html>
+        <!-- Toast Notification -->
+        <div id="toast" class="absolute bottom-20 left-4 right-4 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-between hidden z-50">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle text-emerald-400 ml-3 text-xl"></i>
+                <span id="toastMsg" class="font-semibold text-sm">تم الحفظ بنجاح</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Your Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDRc6CSF_GBgqnPHRN3aglj9FfpvvVwt20",
+            authDomain: "mr-nageh.firebaseapp.com",
+            projectId: "mr-nageh",
+            storageBucket: "mr-nageh.firebasestorage.app",
+            messagingSenderId: "187525166913",
+            appId: "1:187525166913:web:cf587adc89d7bbae4ed3c0",
+            measurementId: "G-512MB76W9B"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // App State
+        let currentUser = null;
+        let userData = null;
+        let expensesData = [];
+        let currentCalcValue = '0';
+        let currentReportTab = 'daily';
+
+        // DOM Elements
+        const loaderScreen = document.getElementById('loaderScreen');
+        const onboardingScreen = document.getElementById('onboardingScreen');
+        const mainApp = document.getElementById('mainApp');
+        
+        const userNameInput = document.getElementById('userNameInput');
+        const saveUserBtn = document.getElementById('saveUserBtn');
+        const displayUserName = document.getElementById('displayUserName');
+        const todayTotal = document.getElementById('todayTotal');
+        
+        const calcDisplay = document.getElementById('calcDisplay');
+        const expenseReason = document.getElementById('expenseReason');
+        const addExpenseBtn = document.getElementById('addExpenseBtn');
+        
+        const reportsContent = document.getElementById('reportsContent');
+
+        // Calculator Functions (Exposed to window for inline onclick)
+        window.appendNum = (num) => {
+            if (currentCalcValue === '0' && num !== '.') {
+                currentCalcValue = num;
+            } else {
+                // Prevent multiple decimals
+                if (num === '.' && currentCalcValue.includes('.')) return;
+                // Limit length
+                if (currentCalcValue.length > 10) return;
+                currentCalcValue += num;
+            }
+            updateCalcDisplay();
+        };
+
+        window.clearCalc = () => {
+            if(currentCalcValue.length > 1) {
+                currentCalcValue = currentCalcValue.slice(0, -1);
+            } else {
+                currentCalcValue = '0';
+            }
+            updateCalcDisplay();
+        };
+
+        const resetCalc = () => {
+            currentCalcValue = '0';
+            expenseReason.value = '';
+            updateCalcDisplay();
+        }
+
+        const updateCalcDisplay = () => {
+            calcDisplay.innerText = currentCalcValue;
+        };
+
+        // Navigation Functions
+        window.switchView = (viewName) => {
+            const viewAdd = document.getElementById('view-add');
+            const viewReports = document.getElementById('view-reports');
+            const navAdd = document.getElementById('nav-add');
+            const navReports = document.getElementById('nav-reports');
+
+            if (viewName === 'add') {
+                viewAdd.style.transform = 'translateX(0)';
+                viewReports.style.transform = 'translateX(100%)'; // Move out to right (RTL logic)
+                navAdd.classList.replace('text-slate-400', 'text-emerald-500');
+                navReports.classList.replace('text-emerald-500', 'text-slate-400');
+            } else {
+                viewAdd.style.transform = 'translateX(-100%)';
+                viewReports.style.transform = 'translateX(0)';
+                navReports.classList.replace('text-slate-400', 'text-emerald-500');
+                navAdd.classList.replace('text-emerald-500', 'text-slate-400');
+                renderReports();
+            }
+        };
+
+        window.switchReportTab = (tabName) => {
+            currentReportTab = tabName;
+            const tabDaily = document.getElementById('tab-daily');
+            const tabWeekly = document.getElementById('tab-weekly');
+
+            if (tabName === 'daily') {
+                tabDaily.className = "flex-1 py-3 text-center font-bold text-sm tab-active transition-colors";
+                tabWeekly.className = "flex-1 py-3 text-center font-bold text-sm tab-inactive transition-colors";
+            } else {
+                tabWeekly.className = "flex-1 py-3 text-center font-bold text-sm tab-active transition-colors";
+                tabDaily.className = "flex-1 py-3 text-center font-bold text-sm tab-inactive transition-colors";
+            }
+            renderReports();
+        };
+
+        // UI Helpers
+        const showToast = (message) => {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = message;
+            toast.classList.remove('hidden');
+            toast.classList.add('toast-enter');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('toast-enter');
+            }, 3000);
+        };
+
+        const hideLoader = () => {
+            loaderScreen.style.opacity = '0';
+            setTimeout(() => { loaderScreen.classList.add('hidden'); }, 500);
+        };
+
+        // Date Helpers
+        const getLocalDateString = (date) => {
+            const d = new Date(date);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().split('T')[0];
+        };
+
+        const getWeekIdentifier = (date) => {
+            const d = new Date(date);
+            // Get Thursday of this week to determine year/week
+            d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+            const week1 = new Date(d.getFullYear(), 0, 4);
+            const weekNumber = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+            return `${d.getFullYear()} - الأسبوع ${weekNumber}`;
+        };
+
+        const formatDateArabic = (dateStr) => {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateStr).toLocaleDateString('ar-EG', options);
+        };
+
+        // ================= FIREBASE LOGIC =================
+
+        // 1. Auth Flow
+        const initAuth = async () => {
+            try {
+                // Try anonymous sign in
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Auth Error:", error);
+                alert("حدث خطأ في الاتصال. تأكد من تفعيل Anonymous Auth في Firebase.");
+                hideLoader();
+            }
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                // Check if user has a profile
+                const userDocRef = doc(db, 'users', user.uid);
+                const userSnap = await getDoc(userDocRef);
+
+                if (userSnap.exists()) {
+                    // Returning user
+                    userData = userSnap.data();
+                    displayUserName.innerText = userData.name;
+                    startExpensesListener();
+                    hideLoader();
+                    mainApp.classList.remove('hidden');
+                    mainApp.classList.add('flex');
+                } else {
+                    // New user -> Show Onboarding
+                    hideLoader();
+                    onboardingScreen.classList.remove('hidden');
+                    onboardingScreen.classList.add('flex');
+                }
+            }
+        });
+
+        // Start App
+        initAuth();
+
+        // 2. Save New User
+        saveUserBtn.addEventListener('click', async () => {
+            const name = userNameInput.value.trim();
+            if (!name) return alert("الرجاء كتابة اسمك");
+            
+            saveUserBtn.disabled = true;
+            saveUserBtn.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>';
+
+            try {
+                await setDoc(doc(db, 'users', currentUser.uid), {
+                    name: name,
+                    createdAt: serverTimestamp()
+                });
+       
